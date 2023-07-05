@@ -8,12 +8,12 @@ fn linear_model(xs: &Vec<f64>, params: &Vec<f64>) -> Vec<f64> {
 
 fn mse(xs: &Vec<f64>, ys: &Vec<f64>) -> f64 {
     let diffs: Vec<f64> = xs.into_iter().zip(ys).map(|(a, b)| a - b).collect();
-    let squares: Vec<f64> = diffs.iter().map(|x| x.powi(2)).collect();
+    let squared: Vec<f64> = diffs.iter().map(|x| x.powi(2)).collect();
     
-    squares.iter().copied().reduce(|a,b| a + b).expect("Could not calculate sum.")
+    squared.iter().copied().reduce(|a,b| a + b).expect("Could not calculate sum.")
 }
 
-fn optimize_fn(
+fn random_optimize_fn(
     xs: &Vec<f64>, 
     ys: &Vec<f64>, 
     model: fn(xs: &Vec<f64>, params: &Vec<f64>) -> Vec<f64>, 
@@ -22,7 +22,7 @@ fn optimize_fn(
 ) {
     let mut best_params = params.clone();
 
-    let mut best_loss = 1000000.0;
+    let mut best_loss = std::f64::MAX;
     let mut rng = rand::thread_rng();
 
     for _ in 0..1000 {
@@ -38,9 +38,39 @@ fn optimize_fn(
         }
     }
     params.clone_from_slice(&best_params);
-    //println!("{:?} {:?}", best_params, best_loss);
-    //let predictions = model(xs, &best_params);
-    //println!("Predictions: {:?}", predictions);
+}
+
+fn naive_gradient_descent_optimize_fn(
+    xs: &Vec<f64>, 
+    ys: &Vec<f64>, 
+    model: fn(xs: &Vec<f64>, params: &Vec<f64>) -> Vec<f64>, 
+    params: &mut Vec<f64>, 
+    loss: fn(xs: &Vec<f64>, ys: &Vec<f64>) -> f64,
+) {
+    let mut best_params = params.clone();
+    let h = 0.0000001;
+    let lr = 0.001;
+
+    for _ in 0..100000 {
+        let mut gradient = vec![0.0; best_params.len()];
+        
+        // Calulate gradients
+        for i in 0..best_params.len() {
+            let mut temp_params = best_params.clone();
+            temp_params[i] = temp_params[i] + h;
+            gradient[i] = (
+                loss(&model(xs, &temp_params), &ys) - 
+                loss(&model(xs, &best_params), &ys)
+            ) / h;
+        }
+
+        // Update parameters
+        for i in 0..best_params.len() {
+            best_params[i] = best_params[i] - lr * gradient[i];
+        }
+
+    }    
+    params.clone_from_slice(&best_params);
 }
 
 fn main() {
@@ -54,7 +84,7 @@ fn main() {
     println!("{:?}", out);
     println!("Model error: {:?}", mse(&out, &labels));
 
-    optimize_fn(&data, &labels, linear_model, &mut params, mse);
+    naive_gradient_descent_optimize_fn(&data, &labels, linear_model, &mut params, mse);
 
     let out = linear_model(&data, &params);
 
